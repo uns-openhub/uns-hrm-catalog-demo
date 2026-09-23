@@ -33,10 +33,11 @@ test('full export splits backend-limited history without dropping or repeating a
   }));
   let calls = 0;
   const client = {
-    async history(topic: string, options: { from: string; to: string; limit: number; token: string }) {
+    async history(topic: string, options: { from: string; to: string; limit: number; dedupe: boolean; token: string }) {
       calls++;
       assert.equal(topic, SOURCE_TOPIC);
       assert.equal(options.token, 'caller-token');
+      assert.equal(options.dedupe, false);
       const matching = source.filter((row) => row.time >= options.from && row.time <= options.to);
       const records = matching.slice(0, options.limit);
       return {
