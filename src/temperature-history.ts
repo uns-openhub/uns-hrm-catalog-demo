@@ -78,6 +78,7 @@ export async function readWindow(
     from: range.from.toISOString(),
     to: range.to.toISOString(),
     limit,
+    dedupe: false,
     token,
   });
   if (!result?.results.length) throw new ExportError('History API did not return the requested topic.', 502);
