@@ -1,0 +1,72 @@
+{
+  "name": "uns-hrm-catalog-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Public UNS OpenHub Data Catalog demo for one hot-rolling furnace temperature attribute",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uns-openhub/uns-hrm-catalog-demo.git"
+  },
+  "homepage": "https://github.com/uns-openhub/uns-hrm-catalog-demo#readme",
+  "bugs": {
+    "url": "https://github.com/uns-openhub/uns-hrm-catalog-demo/issues"
+  },
+  "unsDatahub": {
+    "schemaVersion": 1,
+    "kind": "addon",
+    "controllerCompatibility": ">=2 <3"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm run clean && tsc -p tsconfig.json",
+    "test": "tsx --test test/*.test.ts",
+    "verify": "pnpm run test && pnpm run typecheck && pnpm run build",
+    "dev": "node --env-file-if-exists=.env ./node_modules/tsx/dist/cli.mjs watch src/index.ts",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "generate-config-schema": "node ./node_modules/@uns-kit/core/dist/tools/generate-config-schema.js",
+    "generate-codegen": "graphql-code-generator --require dotenv/config --config codegen.ts",
+    "sync-uns-schema": "node ./node_modules/@uns-kit/core/dist/tools/sync-uns-schema.js",
+    "sync-uns-metadata": "node ./node_modules/@uns-kit/core/dist/tools/sync-uns-metadata.js"
+  },
+  "dependencies": {
+    "@uns-kit/api": "^3.0.19",
+    "@uns-kit/core": "^3.0.19",
+    "hyparquet-writer": "0.16.10",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^5.0.7",
+    "@graphql-codegen/typescript": "^4.1.6",
+    "@graphql-codegen/typescript-operations": "^4.6.1",
+    "@graphql-codegen/typescript-resolvers": "^4.3.1",
+    "@types/node": "^22.19.1",
+    "@typescript-eslint/parser": "^8.70.1",
+    "eslint": "^9.39.2",
+    "graphql": "^16.11.0",
+    "graphql-request": "^7.2.0",
+    "hyparquet": "1.31.1",
+    "prettier": "^3.8.0",
+    "rimraf": "^6.1.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

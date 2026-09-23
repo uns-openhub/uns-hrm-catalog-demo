@@ -1,0 +1,9 @@
+{
+  "npm.packageManager": "pnpm",
+  "json.schemas": [
+    {
+      "fileMatch": ["config.json", "config-*.json"],
+      "url": "./config.schema.json"
+    }
+  ]
+}
