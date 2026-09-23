@@ -21,6 +21,7 @@ import {
   readWindow,
   requireBearer,
 } from './temperature-history.js';
+import { parquetSchema, temperatureRowFields } from './temperature-schema.js';
 
 type ApiHandler = (event: any) => Promise<void>;
 const OFFER_ID = 'novasteel-furnace-zone-1-temperature';
@@ -42,15 +43,6 @@ const queryParams = [
     format: 'date-time',
   }),
 ];
-const rowFields = [
-  defineDataCatalogField('time', 'string', 'Simulator measurement time.', {
-    format: 'date-time',
-    required: true,
-    example: '2026-09-23T12:00:00.000Z',
-  }),
-  defineDataCatalogField('temperatureC', 'number', 'Measured furnace zone 1 temperature.', { required: true, example: 920.5 }),
-  defineDataCatalogField('uom', 'string', 'Unit of measure.', { required: true, example: '°C' }),
-];
 const jsonSchema = defineDataCatalogSchema({
   id: 'novasteel-zone-1-temperature-preview',
   title: 'Furnace zone 1 temperature preview',
@@ -60,7 +52,7 @@ const jsonSchema = defineDataCatalogSchema({
     defineDataCatalogField('count', 'integer', 'Rows in this preview.', { required: true, example: 1 }),
     defineDataCatalogField('hasMore', 'boolean', 'More rows exist in the selected range.', { required: true, example: false }),
     defineDataCatalogField('data', 'array', 'Temperature rows.', { required: true }),
-    ...rowFields,
+    ...temperatureRowFields,
   ],
   examplePayloads: [{ count: 1, hasMore: false, data: [{ time: '2026-09-23T12:00:00.000Z', temperatureC: 920.5, uom: '°C' }] }],
 });
@@ -68,13 +60,7 @@ const csvSchema = defineDataCatalogSchema({
   id: 'novasteel-zone-1-temperature-csv',
   title: 'Furnace zone 1 CSV columns',
   contentType: 'text/csv',
-  fields: rowFields,
-});
-const parquetSchema = defineDataCatalogSchema({
-  id: 'novasteel-zone-1-temperature-parquet',
-  title: 'Furnace zone 1 Parquet columns',
-  contentType: 'application/octet-stream',
-  fields: rowFields,
+  fields: temperatureRowFields,
 });
 
 function sendError(event: any, error: unknown): void {
@@ -93,6 +79,9 @@ function fileHandler(client: UnsClient, format: 'csv' | 'parquet'): ApiHandler {
       return;
     }
     activeFileExports++;
+    const abortController = new AbortController();
+    const onDisconnect = () => abortController.abort();
+    event.res.once('close', onDisconnect);
     let released = false;
     const release = () => {
       if (!released) {
@@ -103,7 +92,16 @@ function fileHandler(client: UnsClient, format: 'csv' | 'parquet'): ApiHandler {
     try {
       const range = parseTimeRange(event.req.query ?? {});
       const token = requireBearer(event.req.headers ?? {});
-      const prepared = await prepareExportFile(format, exportTemperatureRows(client, range, token));
+      const prepared = await prepareExportFile(
+        format,
+        exportTemperatureRows(client, range, token, abortController.signal),
+        abortController.signal,
+      );
+      if (abortController.signal.aborted) {
+        await prepared.cleanup();
+        release();
+        return;
+      }
       const stream = createReadStream(prepared.path);
       const finish = () => {
         release();
@@ -118,7 +116,9 @@ function fileHandler(client: UnsClient, format: 'csv' | 'parquet'): ApiHandler {
       stream.pipe(event.res);
     } catch (error) {
       release();
-      sendError(event, error);
+      if (!abortController.signal.aborted && !event.res.destroyed) sendError(event, error);
+    } finally {
+      event.res.off('close', onDisconnect);
     }
   };
 }

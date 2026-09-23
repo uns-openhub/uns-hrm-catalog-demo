@@ -48,9 +48,8 @@
     "sync-uns-metadata": "node ./node_modules/@uns-kit/core/dist/tools/sync-uns-metadata.js"
   },
   "dependencies": {
-    "@uns-kit/api": "^3.0.19",
-    "@uns-kit/core": "^3.0.19",
-    "hyparquet-writer": "0.16.10",
+    "@uns-kit/api": "^3.0.20",
+    "@uns-kit/core": "^3.0.20",
     "zod": "^4.4.3"
   },
   "devDependencies": {

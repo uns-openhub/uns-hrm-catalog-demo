@@ -10,10 +10,13 @@ fictional [`rtt-demo-app`](https://github.com/uns-openhub/rtt-demo-app):
 Each row contains `time`, `temperatureC`, and `uom`. The JSON preview returns at
 most 500 rows and an explicit `hasMore` flag. File exports do not silently stop
 at the history API's 2,000-row per-request limit: they split full time windows
-and write CSV/Parquet incrementally to a unique temporary directory. The file
-is deleted when the response stream closes. A seven-day query window, 128 MiB
-file limit, and two concurrent file preparations bound demo resource use;
-exceeding a limit returns an error rather than an incomplete file.
+and write CSV/Parquet incrementally to a unique temporary directory. Parquet
+uses the schema-aware streaming helper in `@uns-kit/api` 3.0.20, so the whole
+history is never assembled in memory. The file is deleted when the response
+stream closes, and preparation stops if the caller disconnects. A seven-day
+query window, a 128 MiB file limit, and two concurrent file preparations bound
+demo resource use; exceeding a limit returns an error rather than an incomplete
+file.
 
 The source namespace is fictional. No customer names, credentials, or production
 data are included.

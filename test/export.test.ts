@@ -102,3 +102,13 @@ test('CSV and Parquet files are generated from an async row stream and cleaned u
     await parquet.cleanup();
   }
 });
+
+test('a cancelled Parquet export stops before producing a download', async () => {
+  const controller = new AbortController();
+  async function* rows(): AsyncGenerator<TemperatureRow> {
+    yield { time: '2026-09-23T12:00:00.000Z', temperatureC: 920.5, uom: '°C' };
+    controller.abort();
+    yield { time: '2026-09-23T12:00:01.000Z', temperatureC: 921, uom: '°C' };
+  }
+  await assert.rejects(prepareExportFile('parquet', rows(), controller.signal));
+});

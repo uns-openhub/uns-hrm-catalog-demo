@@ -90,15 +90,25 @@ export async function readWindow(
 }
 
 /** Split only full history windows. No backend limit is allowed to silently clip a file. */
-export async function* exportTemperatureRows(client: HistoryReader, range: TimeRange, token: string): AsyncGenerator<TemperatureRow> {
+export async function* exportTemperatureRows(
+  client: HistoryReader,
+  range: TimeRange,
+  token: string,
+  signal?: AbortSignal,
+): AsyncGenerator<TemperatureRow> {
   let requestCount = 0;
   async function* window(fromMs: number, toMs: number): AsyncGenerator<TemperatureRow> {
+    signal?.throwIfAborted();
     if (++requestCount > MAX_HISTORY_REQUESTS) {
       throw new ExportError('Export needs too many history requests; narrow the time range.', 413);
     }
     const page = await readWindow(client, { from: new Date(fromMs), to: new Date(toMs) }, token);
+    signal?.throwIfAborted();
     if (!page.truncated) {
-      for (const row of page.rows.sort((a, b) => a.time.localeCompare(b.time))) yield row;
+      for (const row of page.rows.sort((a, b) => a.time.localeCompare(b.time))) {
+        signal?.throwIfAborted();
+        yield row;
+      }
       return;
     }
     if (fromMs >= toMs) {

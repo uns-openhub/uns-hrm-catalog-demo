@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { fileWriter, parquetWriteRows } from 'hyparquet-writer';
+import { writeSchemaRowsToParquetStream } from '@uns-kit/api';
 import { ExportError, type TemperatureRow } from './temperature-history.js';
+import { parquetSchema } from './temperature-schema.js';
 
 export type PreparedFile = {
   path: string;
@@ -21,7 +22,12 @@ function csvCell(value: string | number): string {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-export async function prepareExportFile(format: 'csv' | 'parquet', rows: AsyncIterable<TemperatureRow>): Promise<PreparedFile> {
+export async function prepareExportFile(
+  format: 'csv' | 'parquet',
+  rows: AsyncIterable<TemperatureRow>,
+  signal?: AbortSignal,
+): Promise<PreparedFile> {
+  signal?.throwIfAborted();
   const directory = await mkdtemp(join(tmpdir(), 'uns-hrm-catalog-'));
   const fileName = `novasteel-furnace-zone-1-temperature.${format}`;
   const path = join(directory, fileName);
@@ -31,25 +37,20 @@ export async function prepareExportFile(format: 'csv' | 'parquet', rows: AsyncIt
       async function* lines(): AsyncGenerator<string> {
         yield 'time,temperatureC,uom\n';
         for await (const row of rows) {
+          signal?.throwIfAborted();
           yield `${csvCell(row.time)},${csvCell(row.temperatureC)},${csvCell(row.uom)}\n`;
         }
+        signal?.throwIfAborted();
       }
       await pipeline(Readable.from(lines()), createWriteStream(path));
     } else {
-      async function* parquetRows(): AsyncGenerator<{ time: Date; temperatureC: number; uom: string }> {
-        for await (const row of rows) {
-          yield { time: new Date(row.time), temperatureC: row.temperatureC, uom: row.uom };
-        }
-      }
-      await parquetWriteRows({
-        writer: fileWriter(path),
-        rows: parquetRows(),
-        columns: [
-          { name: 'time', type: 'TIMESTAMP' },
-          { name: 'temperatureC', type: 'DOUBLE' },
-          { name: 'uom', type: 'STRING' },
-        ],
+      await writeSchemaRowsToParquetStream({
+        outputDir: directory,
+        fileName,
+        schema: parquetSchema,
+        rows,
         rowGroupSize: 2_000,
+        ...(signal ? { signal } : {}),
       });
     }
     const { size } = await stat(path);
