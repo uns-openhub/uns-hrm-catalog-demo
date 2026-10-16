@@ -1,6 +1,6 @@
 {
   "name": "uns-hrm-catalog-demo",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Public UNS OpenHub Data Catalog demo for one hot-rolling furnace temperature attribute",
   "license": "MIT",
@@ -32,11 +32,12 @@
   },
   "scripts": {
     "clean": "rimraf dist tsconfig.tsbuildinfo",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.examples.json",
     "build": "pnpm run clean && tsc -p tsconfig.json",
     "test": "tsx --test test/*.test.ts",
     "verify": "pnpm run test && pnpm run typecheck && pnpm run build",
     "dev": "node --env-file-if-exists=.env ./node_modules/tsx/dist/cli.mjs watch src/index.ts",
+    "example:single-file": "node --env-file-if-exists=.env ./node_modules/tsx/dist/cli.mjs examples/single-file.ts",
     "start": "node --env-file-if-exists=.env dist/index.js",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
