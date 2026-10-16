@@ -54,6 +54,46 @@ the controller supplies its own routing identity.
 The service requires `uns.jwksWellKnownUrl` and never falls back to a static JWT
 secret. Its only data source is the simulator's zone 1 temperature attribute.
 
+## Start with the single-file example
+
+Read [`examples/single-file.ts`](examples/single-file.ts) first if you want to
+build your own software. It is a complete, separately runnable service in one
+TypeScript file, with no imports from `src/`. It uses the same prerequisites,
+dependencies, ignored `config.json`, and `.env` setup described above:
+
+```sh
+pnpm run example:single-file
+```
+
+Open _Data Catalog → Furnace temperature — single-file example_, supply `from`
+and `to` timestamps with timezones, and run its JSON operation. The route is:
+
+```text
+GET /api/forge-group/novasteel/hot-rolling/hrm-pusher-furnace/dataset/zone-1-temperature-example/json
+```
+
+The file has four numbered sections: choose a source, describe the catalog
+entry and response schema, handle a request, and start the authenticated API.
+`registerApiCatalog` builds the offer from the source definition. A request
+forwards the caller's bearer token to `UnsClient.history` with `dedupe: false`
+to read raw measurements, then returns `{ count, hasMore, data }`. Each data row
+has `time`, `temperatureC`, and `uom`. The preview contains at most **100 rows**
+within a maximum seven-day range; `hasMore: true` means it is incomplete.
+Invalid inputs return 400, a missing bearer token returns 401, and unavailable
+or invalid history returns 502. The API proxy verifies tokens using JWKS.
+
+To use this as a starting point, copy the file into a TypeScript ESM project
+with `@uns-kit/api` and `@uns-kit/core` 3.0.20 or compatible, and `tsx`. Supply
+your own UNS connection configuration and controller routing environment, then
+adapt the source topic, route identity, schema, and row mapping together for
+data you are authorized to expose. Keep credentials outside source control.
+
+This is an optional learning example with its own process, offer, and route
+identities. The normal `dev`, `start`, build, and RTT entry point still use
+`src/index.ts`. For complete CSV/Parquet downloads, follow the full `src/`
+implementation, which handles pagination, temporary files, cancellation, and
+resource limits. The single-file example only provides a bounded JSON preview.
+
 ## Try it in Data Catalog
 
 Open _Data Catalog → Novasteel furnace zone 1 temperature_. All three
@@ -86,8 +126,10 @@ pnpm run verify
 ```
 
 The tests cover range validation, complete export across multiple limited
-history requests, and actual CSV/Parquet file generation. The public repository
-contains no local configuration or credentials.
+history requests, actual CSV/Parquet file generation, and the single-file
+example's caller authorization, raw-history requests, preview limits, and error
+responses. Type checking includes the example. The public repository contains
+no local configuration or credentials.
 
 ## How the official add-on catalog is published
 
