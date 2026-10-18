@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildDataCatalogOffersFromSources, type ApiHandler } from '@uns-kit/api';
-import type { UnsClient } from '@uns-kit/core';
+import { ClientError, type UnsClient } from '@uns-kit/core';
 import { createPreviewSource } from '../examples/single-file.js';
 
 const query = { from: '2026-09-23T12:00:00Z', to: '2026-09-23T13:00:00Z' };
 const row = { time: '2026-09-23T12:00:00Z', numberValue: 920.5, uom: '°C' };
+
+test('standalone source preserves safe authorization refusals', async () => {
+  for (const code of [401, 403]) {
+    const source = createPreviewSource({history: async () => { throw new ClientError('private upstream body', code); }} as unknown as Pick<UnsClient, 'history'>);
+    const result = await request(source);
+    assert.equal(result.status, code);
+    assert.ok(!JSON.stringify(result.body).includes('private'));
+  }
+});
 
 function fixture(records: Record<string, unknown>[] = [row], truncated = false, error: string | null = null) {
   const calls: { topic: string; options: unknown }[] = [];

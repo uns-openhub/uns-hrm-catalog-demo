@@ -14,9 +14,12 @@ and write CSV/Parquet incrementally to a unique temporary directory. Parquet
 uses the schema-aware streaming helper in `@uns-kit/api` 3.0.20, so the whole
 history is never assembled in memory. The file is deleted when the response
 stream closes, and preparation stops if the caller disconnects. A seven-day
-query window, a 128 MiB file limit, and two concurrent file preparations bound
-demo resource use; exceeding a limit returns an error rather than an incomplete
-file.
+query window, at most 2,000 history requests per file, and two concurrent file
+preparations bound the work. A prepared file larger than 128 MiB is rejected
+before download and removed; this is a download limit, not a temporary disk
+quota during preparation. More than one API page of measurements at the same
+millisecond also returns 413 because time splitting cannot retrieve them safely.
+No limit failure is returned as a successful partial file.
 
 The source namespace is fictional. No customer names, credentials, or production
 data are included.
@@ -53,6 +56,8 @@ the controller supplies its own routing identity.
 
 The service requires `uns.jwksWellKnownUrl` and never falls back to a static JWT
 secret. Its only data source is the simulator's zone 1 temperature attribute.
+Both entry points use the shared MQTT channel configuration, including a
+configured port, authentication, and TLS settings.
 
 ## Start with the single-file example
 
@@ -79,7 +84,8 @@ forwards the caller's bearer token to `UnsClient.history` with `dedupe: false`
 to read raw measurements, then returns `{ count, hasMore, data }`. Each data row
 has `time`, `temperatureC`, and `uom`. The preview contains at most **100 rows**
 within a maximum seven-day range; `hasMore: true` means it is incomplete.
-Invalid inputs return 400, a missing bearer token returns 401, and unavailable
+Invalid inputs return 400, a missing or rejected bearer token returns 401,
+denied source access returns 403, and unavailable
 or invalid history returns 502. The API proxy verifies tokens using JWKS.
 
 To use this as a starting point, copy the file into a TypeScript ESM project
@@ -118,6 +124,9 @@ The JSON response has `{ count, hasMore, data }`; downloaded files carry a
 No rows produce an empty CSV or Parquet file. If the history API is unavailable
 or its per-topic query reports an error, the export fails rather than producing
 a partial download.
+Access to the Catalog route does not grant access to the underlying source:
+source refusal returns 403 without a downloadable data file. Service failures
+return 502; a third concurrent file export returns 429 and can be retried later.
 
 ## Build and verify
 
