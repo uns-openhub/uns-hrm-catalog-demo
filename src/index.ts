@@ -1,6 +1,6 @@
 import '@uns-kit/api';
 import { registerApiCatalog, type UnsProxyProcessWithApi } from '@uns-kit/api';
-import { ConfigFile, logger, UnsClient, UnsProxyProcess } from '@uns-kit/core';
+import { ConfigFile, logger, mqttChannelParameters, resolveMqttChannel, type MqttChannelConfig, UnsClient, UnsProxyProcess } from '@uns-kit/core';
 import { buildCatalog } from './temperature-catalog.js';
 
 let activeProcess: UnsProxyProcess | undefined;
@@ -15,7 +15,11 @@ async function main(): Promise<void> {
   }
 
   const processName = config.uns.processName ?? 'uns-hrm-catalog-demo';
-  const unsProcess = new UnsProxyProcess(config.infra.host ?? 'localhost', { processName }) as UnsProxyProcessWithApi;
+  const channel = resolveMqttChannel(config.infra as MqttChannelConfig);
+  const unsProcess = new UnsProxyProcess(channel.host, {
+    processName,
+    ...mqttChannelParameters(channel),
+  }) as UnsProxyProcessWithApi;
   activeProcess = unsProcess;
   const api = await unsProcess.createApiProxy('catalog', {
     jwks: {

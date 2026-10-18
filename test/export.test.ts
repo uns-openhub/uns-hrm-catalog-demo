@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { ClientError } from '@uns-kit/core';
+import { buildCatalog } from '../src/temperature-catalog.js';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet';
@@ -22,6 +25,50 @@ test('one time range accepts a large export window but rejects invalid or oversi
 
 test('missing temperature is rejected rather than exported as zero', () => {
   assert.throws(() => normalizeTemperatureRow({ time: '2026-09-23T12:00:00Z', value: null }), ExportError);
+});
+
+test('file exports share the two-request gate and release it after an upstream refusal', async () => {
+  const pending: Array<() => void> = [];
+  let ready = () => {};
+  const bothEntered = new Promise<void>(resolve => { ready = resolve; });
+  const client = { history: () => new Promise((_, reject) => {
+    pending.push(() => reject(new ClientError('private', 403)));
+    if (pending.length === 2) ready();
+  }) } as unknown as UnsClient;
+  const sources = buildCatalog(client).dataOfferSources;
+  const event = () => {
+    const res = Object.assign(new EventEmitter(), { code: 200, body: null as unknown, destroyed: false,
+      status(code: number) { this.code = code; return this; }, json(body: unknown) { this.body = body; return this; } });
+    return {req: {query: {from: '2026-10-18T06:00:00Z', to: '2026-10-18T06:01:00Z'}, headers: {authorization: 'Bearer fixture'}}, res};
+  };
+  const a = event(), b = event(), c = event();
+  const first = sources.csv!.handler(a as never, undefined);
+  const second = sources.parquet!.handler(b as never, undefined);
+  await sources.csv!.handler(c as never, undefined);
+  assert.equal(c.res.code, 429);
+  await bothEntered;
+  assert.equal(pending.length, 2);
+  pending.splice(0).forEach(reject => reject());
+  await Promise.all([first, second]);
+  assert.equal(a.res.code, 403); assert.equal(b.res.code, 403);
+  const invalid = event(); invalid.req.query.from = 'invalid';
+  await sources.csv!.handler(invalid as never, undefined);
+  assert.equal(invalid.res.code, 400);
+  const d = event(); d.req.headers.authorization = '';
+  await sources.csv!.handler(d as never, undefined);
+  assert.equal(d.res.code, 401);
+});
+
+test('recursive pagination stops at its request budget', async () => {
+  let calls = 0;
+  const client = {history: async (_topic: string, options: {from: string; to: string}) => {
+    calls++;
+    return {results: [{error: null, data: [], stats: {truncated: options.from !== options.to}, toRecords: () => []}]};
+  }} as unknown as Pick<UnsClient, 'history'>;
+  await assert.rejects(async () => {
+    for await (const _row of exportTemperatureRows(client, {from: new Date(0), to: new Date(4095)}, 'fixture')) { /* consume */ }
+  }, (error: unknown) => error instanceof ExportError && error.status === 413 && /too many history requests/.test(error.message));
+  assert.equal(calls, 2000);
 });
 
 test('full export splits backend-limited history without dropping or repeating a row', async () => {

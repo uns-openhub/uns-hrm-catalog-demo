@@ -9,7 +9,7 @@ import {
   type ApiHandler,
   type UnsProxyProcessWithApi,
 } from '@uns-kit/api';
-import { ConfigFile, logger, UnsClient, UnsProxyProcess } from '@uns-kit/core';
+import { ClientError, ConfigFile, logger, mqttChannelParameters, resolveMqttChannel, type MqttChannelConfig, UnsClient, UnsProxyProcess } from '@uns-kit/core';
 
 // 1. Choose one source. This public example always uses fictional simulator data.
 const SOURCE_TOPIC = 'forge-group/novasteel/hot-rolling/hrm-pusher-furnace/equipment/zone-1/temperature';
@@ -84,7 +84,13 @@ export function createPreviewSource(client: Pick<UnsClient, 'history'>) {
           return { time, temperatureC: Number(value), uom: record['uom'] ?? '°C' };
         });
         res.json({ count: data.length, hasMore: item.stats?.['truncated'] === true || records.length > PREVIEW_SIZE, data });
-      } catch {
+      } catch (error) {
+        if (error instanceof ClientError && (error.statusCode === 401 || error.statusCode === 403)) {
+          res.status(error.statusCode).json({ error: error.statusCode === 401
+            ? 'Sign in again before reading source history.'
+            : 'You do not have permission to read the source history.' });
+          return;
+        }
         res.status(502).json({ error: 'Temperature history is unavailable or invalid.' });
       }
     },
@@ -98,8 +104,10 @@ async function main(): Promise<void> {
   if (!config.uns.jwksWellKnownUrl || !config.uns.rest) {
     throw new Error('Configure uns.jwksWellKnownUrl and uns.rest before starting the example.');
   }
-  const unsProcess = new UnsProxyProcess(config.infra.host ?? 'localhost', {
+  const channel = resolveMqttChannel(config.infra as MqttChannelConfig);
+  const unsProcess = new UnsProxyProcess(channel.host, {
     processName: 'uns-hrm-single-file-example',
+    ...mqttChannelParameters(channel),
   }) as UnsProxyProcessWithApi;
   activeProcess = unsProcess;
   const api = await unsProcess.createApiProxy('catalog', {

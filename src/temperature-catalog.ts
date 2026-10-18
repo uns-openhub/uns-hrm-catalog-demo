@@ -10,7 +10,7 @@ import {
   type DataCatalogOfferSourceRegistration,
   type ServiceApiRegistration,
 } from '@uns-kit/api';
-import type { UnsClient } from '@uns-kit/core';
+import { ClientError, type UnsClient } from '@uns-kit/core';
 import { prepareExportFile } from './export-files.js';
 import {
   ExportError,
@@ -63,9 +63,19 @@ const csvSchema = defineDataCatalogSchema({
   fields: temperatureRowFields,
 });
 
+export function classifyExportError(error: unknown): { status: number; message: string } {
+  if (error instanceof ExportError) return { status: error.status, message: error.message };
+  if (error instanceof ClientError && error.statusCode === 401) {
+    return { status: 401, message: 'Sign in again before exporting source history.' };
+  }
+  if (error instanceof ClientError && error.statusCode === 403) {
+    return { status: 403, message: 'You do not have permission to read the source history.' };
+  }
+  return { status: 502, message: 'Temperature history could not be exported.' };
+}
+
 function sendError(event: any, error: unknown): void {
-  const status = error instanceof ExportError ? error.status : 502;
-  const message = error instanceof ExportError ? error.message : 'Temperature history could not be exported.';
+  const { status, message } = classifyExportError(error);
   event.res.status(status).json({ error: message });
 }
 

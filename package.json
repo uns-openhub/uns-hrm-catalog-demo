@@ -1,6 +1,6 @@
 {
   "name": "uns-hrm-catalog-demo",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Public UNS OpenHub Data Catalog demo for one hot-rolling furnace temperature attribute",
   "license": "MIT",
