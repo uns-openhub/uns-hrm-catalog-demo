@@ -1,6 +1,6 @@
 {
   "name": "uns-hrm-catalog-demo",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Public UNS OpenHub Data Catalog demo for one hot-rolling furnace temperature attribute",
   "license": "MIT",
@@ -49,8 +49,8 @@
     "sync-uns-metadata": "node ./node_modules/@uns-kit/core/dist/tools/sync-uns-metadata.js"
   },
   "dependencies": {
-    "@uns-kit/api": "^3.0.20",
-    "@uns-kit/core": "^3.0.20",
+    "@uns-kit/api": "3.0.23",
+    "@uns-kit/core": "3.0.23",
     "zod": "^4.4.3"
   },
   "devDependencies": {

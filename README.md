@@ -11,7 +11,7 @@ Each row contains `time`, `temperatureC`, and `uom`. The JSON preview returns at
 most 500 rows and an explicit `hasMore` flag. File exports do not silently stop
 at the history API's 2,000-row per-request limit: they split full time windows
 and write CSV/Parquet incrementally to a unique temporary directory. Parquet
-uses the schema-aware streaming helper in `@uns-kit/api` 3.0.20, so the whole
+uses the schema-aware streaming helper in `@uns-kit/api` 3.0.23, so the whole
 history is never assembled in memory. The file is deleted when the response
 stream closes, and preparation stops if the caller disconnects. A seven-day
 query window, at most 2,000 history requests per file, and two concurrent file
@@ -89,7 +89,7 @@ denied source access returns 403, and unavailable
 or invalid history returns 502. The API proxy verifies tokens using JWKS.
 
 To use this as a starting point, copy the file into a TypeScript ESM project
-with `@uns-kit/api` and `@uns-kit/core` 3.0.20 or compatible, and `tsx`. Supply
+with `@uns-kit/api` and `@uns-kit/core` 3.0.23, and `tsx`. Supply
 your own UNS connection configuration and controller routing environment, then
 adapt the source topic, route identity, schema, and row mapping together for
 data you are authorized to expose. Keep credentials outside source control.
@@ -129,6 +129,10 @@ source refusal returns 403 without a downloadable data file. Service failures
 return 502; a third concurrent file export returns 429 and can be retried later.
 
 ## Build and verify
+
+Both UNS Kit packages are pinned to `3.0.23`. The published `@uns-kit/api@3.0.24`
+npm archive is missing its declared `dist/index.js` entry point, so it cannot be
+used by this service. Verify a corrected package before upgrading the pins.
 
 ```sh
 pnpm run verify
